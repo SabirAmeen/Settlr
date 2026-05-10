@@ -4,7 +4,8 @@ export interface AuthContextType {
   isAuthenticated: boolean;
   isSupported: boolean;
   isSecure: boolean;
-  hasCredential: boolean;
+  hasBiometrics: boolean;
+  hasPin: boolean;
   pin: string | null;
   setupBiometrics: () => Promise<boolean>;
   authenticateBiometrics: () => Promise<boolean>;
@@ -19,9 +20,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isSupported, setIsSupported] = useState<boolean>(!!window.PublicKeyCredential);
   const [isSecure, setIsSecure] = useState<boolean>(window.isSecureContext);
-  const [hasCredential, setHasCredential] = useState<boolean>(() => {
-    return !!(localStorage.getItem('settlr_credential_id') || localStorage.getItem('settlr_pin'));
-  });
+  const [hasBiometrics, setHasBiometrics] = useState<boolean>(() => !!localStorage.getItem('settlr_credential_id'));
+  const [hasPin, setHasPin] = useState<boolean>(() => !!localStorage.getItem('settlr_pin'));
   const [pin, setPin] = useState<string | null>(() => localStorage.getItem('settlr_pin'));
 
   useEffect(() => {
@@ -66,7 +66,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       const credentialId = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(credential.rawId))));
       localStorage.setItem('settlr_credential_id', credentialId);
-      setHasCredential(true);
+      setHasBiometrics(true);
       setIsAuthenticated(true); // Log in immediately after setup
       return true;
     } catch (err) {
@@ -108,7 +108,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const setupPin = (newPin: string): void => {
     localStorage.setItem('settlr_pin', newPin);
     setPin(newPin);
-    setHasCredential(true);
+    setHasPin(true);
     setIsAuthenticated(true);
   };
 
@@ -123,7 +123,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const resetAuth = (): void => {
     localStorage.removeItem('settlr_credential_id');
     localStorage.removeItem('settlr_pin');
-    setHasCredential(false);
+    setHasBiometrics(false);
+    setHasPin(false);
     setPin(null);
     setIsAuthenticated(true);
   };
@@ -133,7 +134,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       isAuthenticated,
       isSupported,
       isSecure,
-      hasCredential,
+      hasBiometrics,
+      hasPin,
       pin,
       setupBiometrics,
       authenticateBiometrics,

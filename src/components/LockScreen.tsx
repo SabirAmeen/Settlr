@@ -7,7 +7,8 @@ const LockScreen: React.FC = () => {
   if (!context) return null;
 
   const { 
-    hasCredential, 
+    hasBiometrics,
+    hasPin,
     isSupported, 
     isSecure,
     setupBiometrics, 
@@ -17,25 +18,26 @@ const LockScreen: React.FC = () => {
     authenticatePin
   } = context;
 
+  const hasAnyCredential = hasBiometrics || hasPin;
   const [pinInput, setPinInput] = useState<string>('');
   const [error, setError] = useState<string>('');
-  const [mode, setMode] = useState<'login' | 'setup'>(hasCredential ? 'login' : 'setup');
+  const [mode, setMode] = useState<'login' | 'setup'>(hasAnyCredential ? 'login' : 'setup');
   const [setupMode, setSetupMode] = useState<'choice' | 'bio' | 'pin'>('choice');
 
   useEffect(() => {
-    if (hasCredential) {
+    if (hasAnyCredential) {
       setMode('login');
     } else {
       setMode('setup');
     }
-  }, [hasCredential]);
+  }, [hasAnyCredential]);
 
   useEffect(() => {
-    // Only auto-trigger if secure and supported
-    if (mode === 'login' && hasCredential && !pin && isSecure && isSupported) {
+    // Auto-trigger biometrics if they exist and are available
+    if (mode === 'login' && hasBiometrics && isSecure && isSupported) {
       handleBiometricAuth();
     }
-  }, [mode, hasCredential, pin, isSecure, isSupported]);
+  }, [mode, hasBiometrics, isSecure, isSupported]);
 
   const handleBiometricAuth = async () => {
     setError('');
@@ -84,34 +86,47 @@ const LockScreen: React.FC = () => {
             <p className="text-slate-400">Welcome back! Please authenticate to continue.</p>
           </div>
 
-          {!isSecure && (
+          {!isSecure && hasBiometrics && (
             <div className="flex items-center justify-center gap-2 bg-amber-500/10 text-amber-500 p-3 rounded-lg mb-6 text-xs text-left">
               <AlertCircle size={24} className="shrink-0" /> 
-              Biometrics (Fingerprint) require a secure connection (HTTPS).
+              Biometrics (Fingerprint) require a secure connection (HTTPS). Please use your PIN.
             </div>
           )}
 
           {error && <div className="flex items-center justify-center gap-2 bg-red-500/10 text-red-500 p-3 rounded-lg mb-6 text-sm"><AlertCircle size={18} /> {error}</div>}
 
-          {(!pin && isSecure && isSupported) ? (
-            <button className="w-full inline-flex items-center justify-center gap-2 font-semibold border-none rounded-xl cursor-pointer transition-colors bg-brand text-white p-4 text-base hover:bg-brand-hover" onClick={handleBiometricAuth}>
-              <Fingerprint size={24} />
-              Use Biometrics
-            </button>
+          {(hasBiometrics && isSecure && isSupported) ? (
+            <div className="flex flex-col gap-4">
+              <button className="w-full inline-flex items-center justify-center gap-2 font-semibold border-none rounded-xl cursor-pointer transition-colors bg-brand text-white p-4 text-base hover:bg-brand-hover" onClick={handleBiometricAuth}>
+                <Fingerprint size={24} />
+                Use Biometrics
+              </button>
+              {hasPin && (
+                <button className="w-full bg-transparent border-none text-slate-400 p-2 text-sm cursor-pointer hover:text-slate-200" onClick={() => window.location.reload()}>
+                  Use PIN instead
+                </button>
+              )}
+            </div>
           ) : (
             <form onSubmit={handlePinSubmit} className="flex flex-col gap-4">
               <input
                 type="password"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                placeholder="Enter PIN"
+                placeholder={hasPin ? "Enter PIN" : "No PIN set - use Biometrics"}
                 value={pinInput}
                 onChange={(e) => setPinInput(e.target.value)}
                 maxLength={6}
-                className="bg-black/20 border border-white/10 text-slate-100 p-4 rounded-xl font-sans text-2xl text-center tracking-[4px] outline-none focus:border-brand"
+                disabled={!hasPin}
+                className="bg-black/20 border border-white/10 text-slate-100 p-4 rounded-xl font-sans text-2xl text-center tracking-[4px] outline-none focus:border-brand disabled:opacity-50"
                 autoFocus
               />
-              <button type="submit" className="w-full inline-flex items-center justify-center gap-2 font-semibold border-none rounded-xl cursor-pointer transition-colors bg-brand text-white p-3.5 hover:bg-brand-hover">Unlock</button>
+              <button type="submit" disabled={!hasPin} className="w-full inline-flex items-center justify-center gap-2 font-semibold border-none rounded-xl cursor-pointer transition-colors bg-brand text-white p-3.5 hover:bg-brand-hover disabled:opacity-50">Unlock</button>
+              {hasBiometrics && isSecure && isSupported && (
+                <button type="button" className="bg-transparent border-none text-slate-400 p-2 text-sm cursor-pointer hover:text-slate-200" onClick={() => window.location.reload()}>
+                  Try Biometrics again
+                </button>
+              )}
             </form>
           )}
         </div>
