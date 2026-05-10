@@ -133,9 +133,9 @@ const TransactionList: React.FC = () => {
                       <div key={i} className="border-l-2 border-brand/30 pl-3 py-1">
                         <div className="text-slate-500 mb-1 text-[10px]">{formatDate(h.date)}</div>
                         <div className="flex justify-between items-center">
-                          <div className="flex flex-col">
-                            <span className="text-slate-200">{h.person}</span>
-                            <span className="text-slate-500 italic">{h.description || 'No description'}</span>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-slate-200 font-medium">{h.person}</span>
+                            <span className="text-brand/90 italic truncate max-w-[200px]">{h.changeReason || 'Record updated'}</span>
                           </div>
                           <span className={`font-bold ${h.type === 'owe' ? 'text-red-500/70' : 'text-emerald-500/70'}`}>
                             {h.type === 'owe' ? '-' : '+'}{formatINR(h.amount)}

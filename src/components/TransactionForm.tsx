@@ -13,6 +13,7 @@ const TransactionForm: React.FC<Props> = ({ onClose, transactionToEdit }) => {
   const [amount, setAmount] = useState<string>(transactionToEdit?.amount.toString() || '');
   const [person, setPerson] = useState<string>(transactionToEdit?.person || '');
   const [description, setDescription] = useState<string>(transactionToEdit?.description || '');
+  const [changeReason, setChangeReason] = useState<string>('');
 
   if (!context) return null;
   const { addTransaction, updateTransaction } = context;
@@ -29,7 +30,7 @@ const TransactionForm: React.FC<Props> = ({ onClose, transactionToEdit }) => {
     };
 
     if (transactionToEdit) {
-      updateTransaction(transactionToEdit.id, transactionData);
+      updateTransaction(transactionToEdit.id, transactionData, changeReason || 'Record updated');
     } else {
       addTransaction(transactionData);
     }
@@ -101,6 +102,20 @@ const TransactionForm: React.FC<Props> = ({ onClose, transactionToEdit }) => {
               className="bg-black/20 border border-white/10 text-slate-100 p-3 px-4 rounded-xl font-sans text-base outline-none transition-colors focus:border-brand"
             />
           </div>
+
+          {transactionToEdit && (
+            <div className="flex flex-col gap-2 border-t border-white/5 pt-4 mt-2">
+              <label className="text-sm text-brand font-semibold">Reason for Change</label>
+              <input
+                type="text"
+                value={changeReason}
+                onChange={(e) => setChangeReason(e.target.value)}
+                placeholder="Why are you editing this record?"
+                className="bg-brand/10 border border-brand/30 text-slate-100 p-3 px-4 rounded-xl font-sans text-base outline-none transition-colors focus:border-brand placeholder:text-slate-500"
+                required
+              />
+            </div>
+          )}
 
           <button type="submit" className="mt-4 w-full inline-flex items-center justify-center gap-2 font-semibold border-none rounded-xl cursor-pointer transition-colors bg-brand text-white p-3.5 hover:bg-brand-hover">
             {transactionToEdit ? <Pencil size={18} /> : <Plus size={18} />}

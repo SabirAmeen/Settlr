@@ -6,6 +6,7 @@ export interface HistoryEntry {
   person: string;
   description: string;
   type: 'owe' | 'owed';
+  changeReason?: string;
 }
 
 export interface Transaction {
@@ -22,7 +23,7 @@ export interface Transaction {
 export interface TransactionContextType {
   transactions: Transaction[];
   addTransaction: (transaction: Omit<Transaction, 'id' | 'date' | 'settled' | 'history'>) => void;
-  updateTransaction: (id: string, updates: Omit<Transaction, 'id' | 'date' | 'settled' | 'history'>) => void;
+  updateTransaction: (id: string, updates: Omit<Transaction, 'id' | 'date' | 'settled' | 'history'>, changeReason: string) => void;
   deleteTransaction: (id: string) => void;
   toggleSettled: (id: string) => void;
   totalIOwe: number;
@@ -61,7 +62,7 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
     setTransactions((prev) => [newTransaction, ...prev]);
   };
 
-  const updateTransaction = (id: string, updates: Omit<Transaction, 'id' | 'date' | 'settled' | 'history'>) => {
+  const updateTransaction = (id: string, updates: Omit<Transaction, 'id' | 'date' | 'settled' | 'history'>, changeReason: string) => {
     setTransactions((prev) => 
       prev.map(t => {
         if (t.id === id) {
@@ -70,7 +71,8 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
             amount: t.amount,
             person: t.person,
             description: t.description,
-            type: t.type
+            type: t.type,
+            changeReason: changeReason
           };
           return {
             ...t,
