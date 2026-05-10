@@ -9,6 +9,7 @@ const LockScreen: React.FC = () => {
   const { 
     hasCredential, 
     isSupported, 
+    isSecure,
     setupBiometrics, 
     authenticateBiometrics,
     pin,
@@ -22,10 +23,11 @@ const LockScreen: React.FC = () => {
   const [setupMode, setSetupMode] = useState<'choice' | 'bio' | 'pin'>('choice');
 
   useEffect(() => {
-    if (mode === 'login' && hasCredential && !pin) {
+    // Only auto-trigger if secure and supported
+    if (mode === 'login' && hasCredential && !pin && isSecure && isSupported) {
       handleBiometricAuth();
     }
-  }, [mode, hasCredential, pin]);
+  }, [mode, hasCredential, pin, isSecure, isSupported]);
 
   const handleBiometricAuth = async () => {
     setError('');
@@ -74,9 +76,16 @@ const LockScreen: React.FC = () => {
             <p className="text-slate-400">Welcome back! Please authenticate to continue.</p>
           </div>
 
+          {!isSecure && (
+            <div className="flex items-center justify-center gap-2 bg-amber-500/10 text-amber-500 p-3 rounded-lg mb-6 text-xs text-left">
+              <AlertCircle size={24} className="shrink-0" /> 
+              Biometrics (Fingerprint) require a secure connection (HTTPS).
+            </div>
+          )}
+
           {error && <div className="flex items-center justify-center gap-2 bg-red-500/10 text-red-500 p-3 rounded-lg mb-6 text-sm"><AlertCircle size={18} /> {error}</div>}
 
-          {!pin ? (
+          {(!pin && isSecure && isSupported) ? (
             <button className="w-full inline-flex items-center justify-center gap-2 font-semibold border-none rounded-xl cursor-pointer transition-colors bg-brand text-white p-4 text-base hover:bg-brand-hover" onClick={handleBiometricAuth}>
               <Fingerprint size={24} />
               Use Biometrics
@@ -113,11 +122,18 @@ const LockScreen: React.FC = () => {
           <p className="text-slate-400">Protect your financial data from unauthorized access.</p>
         </div>
 
+        {!isSecure && (
+          <div className="flex items-center justify-center gap-2 bg-amber-500/10 text-amber-500 p-3 rounded-lg mb-6 text-xs text-left">
+            <AlertCircle size={24} className="shrink-0" /> 
+            HTTPS is required for Biometrics. Please use a PIN if testing on a local network.
+          </div>
+        )}
+
         {error && <div className="flex items-center justify-center gap-2 bg-red-500/10 text-red-500 p-3 rounded-lg mb-6 text-sm"><AlertCircle size={18} /> {error}</div>}
 
         {setupMode === 'choice' && (
           <div className="flex flex-col">
-            {isSupported && (
+            {isSupported && isSecure && (
               <button className="w-full mb-3 inline-flex items-center justify-center gap-2 font-semibold border-none rounded-xl cursor-pointer transition-colors bg-brand text-white p-3.5 hover:bg-brand-hover" onClick={handleBiometricSetup}>
                 <Fingerprint size={20} />
                 Set up Biometrics / Screen Lock

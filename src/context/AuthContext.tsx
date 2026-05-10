@@ -3,6 +3,7 @@ import React, { createContext, useState, useEffect, ReactNode } from 'react';
 export interface AuthContextType {
   isAuthenticated: boolean;
   isSupported: boolean;
+  isSecure: boolean;
   hasCredential: boolean;
   pin: string | null;
   setupBiometrics: () => Promise<boolean>;
@@ -17,12 +18,16 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isSupported, setIsSupported] = useState<boolean>(true);
+  const [isSecure, setIsSecure] = useState<boolean>(true);
   const [hasCredential, setHasCredential] = useState<boolean>(false);
   const [pin, setPin] = useState<string | null>(null);
 
   useEffect(() => {
     if (!window.PublicKeyCredential) {
       setIsSupported(false);
+    }
+    if (!window.isSecureContext) {
+      setIsSecure(false);
     }
     
     const storedCredId = localStorage.getItem('settlr_credential_id');
@@ -31,9 +36,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (storedCredId || storedPin) {
       setHasCredential(true);
       if (storedPin) setPin(storedPin);
-    } else {
-      setIsAuthenticated(true);
     }
+    // No else { setIsAuthenticated(true) } - force setup or login
   }, []);
 
   const generateChallenge = (): Uint8Array => {
@@ -56,7 +60,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           displayName: "Settlr User",
         },
         pubKeyCredParams: [{alg: -7, type: "public-key"}],
-        authenticatorSelection: { userVerification: "required" },
+        authenticatorSelection: { 
+          userVerification: "required",
+          authenticatorAttachment: "platform",
+          residentKey: "preferred"
+        },
         timeout: 60000,
       };
 
@@ -69,6 +77,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const credentialId = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(credential.rawId))));
       localStorage.setItem('settlr_credential_id', credentialId);
       setHasCredential(true);
+      setIsAuthenticated(true); // Log in immediately after setup
       return true;
     } catch (err) {
       console.error('Error setting up biometrics:', err);
@@ -110,6 +119,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     localStorage.setItem('settlr_pin', newPin);
     setPin(newPin);
     setHasCredential(true);
+    setIsAuthenticated(true);
   };
 
   const authenticatePin = (inputPin: string): boolean => {
@@ -132,6 +142,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     <AuthContext.Provider value={{
       isAuthenticated,
       isSupported,
+      isSecure,
       hasCredential,
       pin,
       setupBiometrics,
