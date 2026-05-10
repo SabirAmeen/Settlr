@@ -32,13 +32,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     
     const storedCredId = localStorage.getItem('settlr_credential_id');
     const storedPin = localStorage.getItem('settlr_pin');
+    const sessionActive = sessionStorage.getItem('settlr_session_active');
     
     if (storedCredId || storedPin) {
       setHasCredential(true);
       if (storedPin) setPin(storedPin);
+      
+      // If we already authenticated in this session, don't ask again
+      if (sessionActive === 'true') {
+        setIsAuthenticated(true);
+      }
     }
     // No else { setIsAuthenticated(true) } - force setup or login
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      sessionStorage.setItem('settlr_session_active', 'true');
+    }
+  }, [isAuthenticated]);
 
   const generateChallenge = (): Uint8Array => {
     const array = new Uint8Array(32);
@@ -133,6 +145,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const resetAuth = (): void => {
     localStorage.removeItem('settlr_credential_id');
     localStorage.removeItem('settlr_pin');
+    sessionStorage.removeItem('settlr_session_active');
     setHasCredential(false);
     setPin(null);
     setIsAuthenticated(true);
