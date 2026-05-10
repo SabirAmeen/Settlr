@@ -17,27 +17,17 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [isSupported, setIsSupported] = useState<boolean>(true);
-  const [isSecure, setIsSecure] = useState<boolean>(true);
-  const [hasCredential, setHasCredential] = useState<boolean>(false);
-  const [pin, setPin] = useState<string | null>(null);
+  const [isSupported, setIsSupported] = useState<boolean>(!!window.PublicKeyCredential);
+  const [isSecure, setIsSecure] = useState<boolean>(window.isSecureContext);
+  const [hasCredential, setHasCredential] = useState<boolean>(() => {
+    return !!(localStorage.getItem('settlr_credential_id') || localStorage.getItem('settlr_pin'));
+  });
+  const [pin, setPin] = useState<string | null>(() => localStorage.getItem('settlr_pin'));
 
   useEffect(() => {
-    if (!window.PublicKeyCredential) {
-      setIsSupported(false);
-    }
-    if (!window.isSecureContext) {
-      setIsSecure(false);
-    }
-    
-    const storedCredId = localStorage.getItem('settlr_credential_id');
-    const storedPin = localStorage.getItem('settlr_pin');
-    
-    if (storedCredId || storedPin) {
-      setHasCredential(true);
-      if (storedPin) setPin(storedPin);
-    }
-    // No else { setIsAuthenticated(true) } - force setup or login
+    // Re-check support in case window object wasn't fully ready
+    if (!window.PublicKeyCredential) setIsSupported(false);
+    if (!window.isSecureContext) setIsSecure(false);
   }, []);
 
   const generateChallenge = (): Uint8Array => {

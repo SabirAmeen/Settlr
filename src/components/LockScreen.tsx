@@ -23,6 +23,14 @@ const LockScreen: React.FC = () => {
   const [setupMode, setSetupMode] = useState<'choice' | 'bio' | 'pin'>('choice');
 
   useEffect(() => {
+    if (hasCredential) {
+      setMode('login');
+    } else {
+      setMode('setup');
+    }
+  }, [hasCredential]);
+
+  useEffect(() => {
     // Only auto-trigger if secure and supported
     if (mode === 'login' && hasCredential && !pin && isSecure && isSupported) {
       handleBiometricAuth();
