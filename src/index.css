@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  
+  --color-brand: #8b5cf6;
+  --color-brand-hover: #7c3aed;
+  --color-accent: #0ea5e9;
+  
+  --color-surface: rgba(30, 41, 59, 0.7);
+  --color-surface-border: rgba(255, 255, 255, 0.1);
+  --color-bg: #0f172a;
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-slate-100 font-sans min-h-screen antialiased;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, rgba(14, 165, 233, 0.15) 0px, transparent 50%);
+    background-attachment: fixed;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-surface backdrop-blur-xl border border-surface-border shadow-2xl;
+  }
+}
