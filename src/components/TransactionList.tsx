@@ -72,38 +72,40 @@ const TransactionList: React.FC = () => {
         ) : (
           filteredTransactions.map((t) => (
             <div key={t.id} className="flex flex-col gap-0">
-              <div className={`flex items-center p-4 gap-4 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/10 glass ${t.settled ? 'opacity-50' : ''}`}>
-                <div className="cursor-pointer" onClick={() => toggleSettled(t.id)}>
+              <div className={`flex items-center p-3 sm:p-4 gap-3 sm:gap-4 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/10 glass ${t.settled ? 'opacity-50' : ''}`}>
+                <div className="cursor-pointer shrink-0" onClick={() => toggleSettled(t.id)}>
                   {t.settled ? <CheckCircle className="text-emerald-500" /> : <Circle className="text-slate-400" />}
                 </div>
                 
-                <div className={`flex-1 ${t.settled ? 'line-through' : ''}`}>
-                  <div className="flex justify-between items-center mb-1">
-                    <span className="font-semibold text-base flex items-center gap-1.5"><User size={14} /> {t.person}</span>
-                    <span className={`font-bold text-base ${t.type === 'owe' ? 'text-red-500' : 'text-emerald-500'}`}>
+                <div className={`flex-1 min-w-0 ${t.settled ? 'line-through' : ''}`}>
+                  <div className="flex justify-between items-center mb-1 gap-2">
+                    <span className="font-semibold text-sm sm:text-base flex items-center gap-1.5 truncate">
+                      <User size={14} className="shrink-0" /> {t.person}
+                    </span>
+                    <span className={`font-bold text-sm sm:text-base shrink-0 ${t.type === 'owe' ? 'text-red-500' : 'text-emerald-500'}`}>
                       {t.type === 'owe' ? '-' : '+'}{formatINR(t.amount)}
                     </span>
                   </div>
-                  <div className="text-sm text-slate-400 mb-2">{t.description}</div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-slate-400 flex items-center gap-1"><Calendar size={12} /> {formatDate(t.date)}</span>
-                    <span className={`text-[10px] uppercase py-0.5 px-1.5 rounded font-semibold tracking-wide ${t.type === 'owe' ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                  <div className="text-xs sm:text-sm text-slate-400 mb-2 truncate">{t.description || 'No description'}</div>
+                  <div className="flex justify-between items-center gap-2">
+                    <span className="text-[10px] sm:text-xs text-slate-400 flex items-center gap-1 shrink-0"><Calendar size={12} /> {formatDate(t.date)}</span>
+                    <span className={`text-[9px] sm:text-[10px] uppercase py-0.5 px-1.5 rounded font-semibold tracking-wide shrink-0 ${t.type === 'owe' ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
                       {t.type === 'owe' ? 'You Owe' : 'Owes You'}
                     </span>
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1 shrink-0">
                   <div className="flex gap-1">
                     <button 
-                      className="bg-transparent border-none text-slate-400 cursor-pointer p-2 rounded-lg transition-colors hover:text-brand hover:bg-brand/10" 
+                      className="bg-transparent border-none text-slate-400 cursor-pointer p-1.5 sm:p-2 rounded-lg transition-colors hover:text-brand hover:bg-brand/10" 
                       onClick={() => setEditingTransaction(t)}
                       title="Edit"
                     >
                       <Pencil size={18} />
                     </button>
                     <button 
-                      className="bg-transparent border-none text-slate-400 cursor-pointer p-2 rounded-lg transition-colors hover:text-red-500 hover:bg-red-500/10" 
+                      className="bg-transparent border-none text-slate-400 cursor-pointer p-1.5 sm:p-2 rounded-lg transition-colors hover:text-red-500 hover:bg-red-500/10" 
                       onClick={() => deleteTransaction(t.id)}
                       title="Delete"
                     >
@@ -112,7 +114,7 @@ const TransactionList: React.FC = () => {
                   </div>
                   {t.history && t.history.length > 0 && (
                     <button 
-                      className={`bg-transparent border-none cursor-pointer p-2 rounded-lg transition-colors flex items-center justify-center gap-1 text-[10px] uppercase font-bold ${viewingHistory === t.id ? 'text-brand bg-brand/10' : 'text-slate-500 hover:text-slate-300'}`}
+                      className={`bg-transparent border-none cursor-pointer p-1.5 sm:p-2 rounded-lg transition-colors flex items-center justify-center gap-1 text-[9px] sm:text-[10px] uppercase font-bold ${viewingHistory === t.id ? 'text-brand bg-brand/10' : 'text-slate-500 hover:text-slate-300'}`}
                       onClick={() => setViewingHistory(viewingHistory === t.id ? null : t.id)}
                     >
                       <History size={14} /> {t.history.length}
