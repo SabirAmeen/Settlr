@@ -1,31 +1,38 @@
 import React, { useState, useContext } from 'react';
-import { TransactionContext } from '../context/TransactionContext';
-import { Plus, X } from 'lucide-react';
+import { TransactionContext, Transaction } from '../context/TransactionContext';
+import { Plus, X, Pencil } from 'lucide-react';
 
 interface Props {
   onClose: () => void;
+  transactionToEdit?: Transaction;
 }
 
-const TransactionForm: React.FC<Props> = ({ onClose }) => {
+const TransactionForm: React.FC<Props> = ({ onClose, transactionToEdit }) => {
   const context = useContext(TransactionContext);
-  const [type, setType] = useState<'owed' | 'owe'>('owed');
-  const [amount, setAmount] = useState<string>('');
-  const [person, setPerson] = useState<string>('');
-  const [description, setDescription] = useState<string>('');
+  const [type, setType] = useState<'owed' | 'owe'>(transactionToEdit?.type || 'owed');
+  const [amount, setAmount] = useState<string>(transactionToEdit?.amount.toString() || '');
+  const [person, setPerson] = useState<string>(transactionToEdit?.person || '');
+  const [description, setDescription] = useState<string>(transactionToEdit?.description || '');
 
   if (!context) return null;
-  const { addTransaction } = context;
+  const { addTransaction, updateTransaction } = context;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || !person) return;
 
-    addTransaction({
+    const transactionData = {
       type,
       amount: Number(amount),
       person,
       description
-    });
+    };
+
+    if (transactionToEdit) {
+      updateTransaction(transactionToEdit.id, transactionData);
+    } else {
+      addTransaction(transactionData);
+    }
 
     onClose();
   };
@@ -34,7 +41,9 @@ const TransactionForm: React.FC<Props> = ({ onClose }) => {
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end z-[100] animate-[fadeIn_0.3s_ease]">
       <div className="w-full max-w-[600px] mx-auto rounded-b-none p-6 glass animate-[slideUp_0.3s_cubic-bezier(0.16,1,0.3,1)]">
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-semibold">Add Transaction</h3>
+          <h3 className="text-xl font-semibold">
+            {transactionToEdit ? 'Edit Transaction' : 'Add Transaction'}
+          </h3>
           <button className="bg-white/10 border-none text-slate-100 w-8 h-8 rounded-full flex items-center justify-center cursor-pointer hover:bg-white/20 transition-colors" onClick={onClose}><X size={20} /></button>
         </div>
 
@@ -94,7 +103,8 @@ const TransactionForm: React.FC<Props> = ({ onClose }) => {
           </div>
 
           <button type="submit" className="mt-4 w-full inline-flex items-center justify-center gap-2 font-semibold border-none rounded-xl cursor-pointer transition-colors bg-brand text-white p-3.5 hover:bg-brand-hover">
-            <Plus size={18} /> Add Record
+            {transactionToEdit ? <Pencil size={18} /> : <Plus size={18} />}
+            {transactionToEdit ? 'Update Record' : 'Add Record'}
           </button>
         </form>
       </div>

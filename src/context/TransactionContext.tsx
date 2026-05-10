@@ -1,5 +1,13 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 
+export interface HistoryEntry {
+  date: string;
+  amount: number;
+  person: string;
+  description: string;
+  type: 'owe' | 'owed';
+}
+
 export interface Transaction {
   id: string;
   type: 'owe' | 'owed';
@@ -8,11 +16,13 @@ export interface Transaction {
   description: string;
   date: string;
   settled: boolean;
+  history: HistoryEntry[];
 }
 
 export interface TransactionContextType {
   transactions: Transaction[];
-  addTransaction: (transaction: Omit<Transaction, 'id' | 'date' | 'settled'>) => void;
+  addTransaction: (transaction: Omit<Transaction, 'id' | 'date' | 'settled' | 'history'>) => void;
+  updateTransaction: (id: string, updates: Omit<Transaction, 'id' | 'date' | 'settled' | 'history'>) => void;
   deleteTransaction: (id: string) => void;
   toggleSettled: (id: string) => void;
   totalIOwe: number;
@@ -40,14 +50,37 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
     localStorage.setItem('settlr_transactions', JSON.stringify(transactions));
   }, [transactions]);
 
-  const addTransaction = (transaction: Omit<Transaction, 'id' | 'date' | 'settled'>) => {
+  const addTransaction = (transaction: Omit<Transaction, 'id' | 'date' | 'settled' | 'history'>) => {
     const newTransaction: Transaction = {
       ...transaction,
       id: crypto.randomUUID(),
       date: new Date().toISOString(),
-      settled: false
+      settled: false,
+      history: []
     };
     setTransactions((prev) => [newTransaction, ...prev]);
+  };
+
+  const updateTransaction = (id: string, updates: Omit<Transaction, 'id' | 'date' | 'settled' | 'history'>) => {
+    setTransactions((prev) => 
+      prev.map(t => {
+        if (t.id === id) {
+          const historyEntry: HistoryEntry = {
+            date: new Date().toISOString(),
+            amount: t.amount,
+            person: t.person,
+            description: t.description,
+            type: t.type
+          };
+          return {
+            ...t,
+            ...updates,
+            history: [historyEntry, ...t.history]
+          };
+        }
+        return t;
+      })
+    );
   };
 
   const deleteTransaction = (id: string) => {
@@ -74,6 +107,7 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
     <TransactionContext.Provider value={{
       transactions,
       addTransaction,
+      updateTransaction,
       deleteTransaction,
       toggleSettled,
       totalIOwe,

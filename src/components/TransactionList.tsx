@@ -1,6 +1,7 @@
 import React, { useContext, useState } from 'react';
-import { TransactionContext } from '../context/TransactionContext';
-import { CheckCircle, Circle, Trash2, Calendar, User } from 'lucide-react';
+import { TransactionContext, Transaction } from '../context/TransactionContext';
+import { CheckCircle, Circle, Trash2, Calendar, User, Pencil, History, Clock } from 'lucide-react';
+import TransactionForm from './TransactionForm';
 
 const formatINR = (amount: number): string => {
   return new Intl.NumberFormat('en-IN', {
@@ -23,6 +24,8 @@ type FilterType = 'all' | 'owe' | 'owed';
 const TransactionList: React.FC = () => {
   const context = useContext(TransactionContext);
   const [filter, setFilter] = useState<FilterType>('all');
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [viewingHistory, setViewingHistory] = useState<string | null>(null);
 
   if (!context) return null;
   const { transactions, toggleSettled, deleteTransaction } = context;
@@ -44,19 +47,19 @@ const TransactionList: React.FC = () => {
     <div>
       <div className="flex gap-2 mb-4 bg-black/20 p-1 rounded-xl">
         <button 
-          className={`flex-1 bg-transparent border-none text-slate-400 py-2 rounded-lg font-medium cursor-pointer transition-all duration-300 ${filter === 'all' ? 'bg-surface text-slate-100 shadow-md' : ''}`}
+          className={`flex-1 border-none py-2 rounded-lg font-medium cursor-pointer transition-all duration-300 ${filter === 'all' ? 'bg-surface text-slate-100 shadow-md' : 'bg-transparent text-slate-400'}`}
           onClick={() => setFilter('all')}
         >
           All
         </button>
         <button 
-          className={`flex-1 bg-transparent border-none text-slate-400 py-2 rounded-lg font-medium cursor-pointer transition-all duration-300 ${filter === 'owed' ? 'bg-surface text-slate-100 shadow-md' : ''}`}
+          className={`flex-1 border-none py-2 rounded-lg font-medium cursor-pointer transition-all duration-300 ${filter === 'owed' ? 'bg-surface text-slate-100 shadow-md' : 'bg-transparent text-slate-400'}`}
           onClick={() => setFilter('owed')}
         >
           Owed to me
         </button>
         <button 
-          className={`flex-1 bg-transparent border-none text-slate-400 py-2 rounded-lg font-medium cursor-pointer transition-all duration-300 ${filter === 'owe' ? 'bg-surface text-slate-100 shadow-md' : ''}`}
+          className={`flex-1 border-none py-2 rounded-lg font-medium cursor-pointer transition-all duration-300 ${filter === 'owe' ? 'bg-surface text-slate-100 shadow-md' : 'bg-transparent text-slate-400'}`}
           onClick={() => setFilter('owe')}
         >
           I Owe
@@ -68,34 +71,90 @@ const TransactionList: React.FC = () => {
           <div className="text-center py-10 text-slate-400">No matching transactions.</div>
         ) : (
           filteredTransactions.map((t) => (
-            <div key={t.id} className={`flex items-center p-4 gap-4 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/10 glass ${t.settled ? 'opacity-50' : ''}`}>
-              <div className="cursor-pointer" onClick={() => toggleSettled(t.id)}>
-                {t.settled ? <CheckCircle className="text-emerald-500" /> : <Circle className="text-slate-400" />}
-              </div>
-              
-              <div className={`flex-1 ${t.settled ? 'line-through' : ''}`}>
-                <div className="flex justify-between items-center mb-1">
-                  <span className="font-semibold text-base flex items-center gap-1.5"><User size={14} /> {t.person}</span>
-                  <span className={`font-bold text-base ${t.type === 'owe' ? 'text-red-500' : 'text-emerald-500'}`}>
-                    {t.type === 'owe' ? '-' : '+'}{formatINR(t.amount)}
-                  </span>
+            <div key={t.id} className="flex flex-col gap-0">
+              <div className={`flex items-center p-4 gap-4 transition-all duration-200 hover:-translate-y-0.5 hover:bg-white/10 glass ${t.settled ? 'opacity-50' : ''}`}>
+                <div className="cursor-pointer" onClick={() => toggleSettled(t.id)}>
+                  {t.settled ? <CheckCircle className="text-emerald-500" /> : <Circle className="text-slate-400" />}
                 </div>
-                <div className="text-sm text-slate-400 mb-2">{t.description}</div>
-                <div className="flex justify-between items-center">
-                  <span className="text-xs text-slate-400 flex items-center gap-1"><Calendar size={12} /> {formatDate(t.date)}</span>
-                  <span className={`text-[10px] uppercase py-0.5 px-1.5 rounded font-semibold tracking-wide ${t.type === 'owe' ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
-                    {t.type === 'owe' ? 'You Owe' : 'Owes You'}
-                  </span>
+                
+                <div className={`flex-1 ${t.settled ? 'line-through' : ''}`}>
+                  <div className="flex justify-between items-center mb-1">
+                    <span className="font-semibold text-base flex items-center gap-1.5"><User size={14} /> {t.person}</span>
+                    <span className={`font-bold text-base ${t.type === 'owe' ? 'text-red-500' : 'text-emerald-500'}`}>
+                      {t.type === 'owe' ? '-' : '+'}{formatINR(t.amount)}
+                    </span>
+                  </div>
+                  <div className="text-sm text-slate-400 mb-2">{t.description}</div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-400 flex items-center gap-1"><Calendar size={12} /> {formatDate(t.date)}</span>
+                    <span className={`text-[10px] uppercase py-0.5 px-1.5 rounded font-semibold tracking-wide ${t.type === 'owe' ? 'bg-red-500/10 text-red-500' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                      {t.type === 'owe' ? 'You Owe' : 'Owes You'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <div className="flex gap-1">
+                    <button 
+                      className="bg-transparent border-none text-slate-400 cursor-pointer p-2 rounded-lg transition-colors hover:text-brand hover:bg-brand/10" 
+                      onClick={() => setEditingTransaction(t)}
+                      title="Edit"
+                    >
+                      <Pencil size={18} />
+                    </button>
+                    <button 
+                      className="bg-transparent border-none text-slate-400 cursor-pointer p-2 rounded-lg transition-colors hover:text-red-500 hover:bg-red-500/10" 
+                      onClick={() => deleteTransaction(t.id)}
+                      title="Delete"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                  {t.history && t.history.length > 0 && (
+                    <button 
+                      className={`bg-transparent border-none cursor-pointer p-2 rounded-lg transition-colors flex items-center justify-center gap-1 text-[10px] uppercase font-bold ${viewingHistory === t.id ? 'text-brand bg-brand/10' : 'text-slate-500 hover:text-slate-300'}`}
+                      onClick={() => setViewingHistory(viewingHistory === t.id ? null : t.id)}
+                    >
+                      <History size={14} /> {t.history.length}
+                    </button>
+                  )}
                 </div>
               </div>
 
-              <button className="bg-transparent border-none text-slate-400 cursor-pointer p-2 rounded-lg transition-colors hover:text-red-500 hover:bg-red-500/10" onClick={() => deleteTransaction(t.id)}>
-                <Trash2 size={18} />
-              </button>
+              {viewingHistory === t.id && t.history && t.history.length > 0 && (
+                <div className="mx-4 mt-[-1px] mb-3 p-4 bg-black/30 rounded-b-xl border border-white/5 text-xs animate-[fadeIn_0.2s_ease]">
+                  <h4 className="flex items-center gap-1.5 mb-3 text-slate-300 font-medium border-b border-white/5 pb-2">
+                    <Clock size={12} /> Edit History Logs
+                  </h4>
+                  <div className="space-y-3">
+                    {t.history.map((h, i) => (
+                      <div key={i} className="border-l-2 border-brand/30 pl-3 py-1">
+                        <div className="text-slate-500 mb-1 text-[10px]">{formatDate(h.date)}</div>
+                        <div className="flex justify-between items-center">
+                          <div className="flex flex-col">
+                            <span className="text-slate-200">{h.person}</span>
+                            <span className="text-slate-500 italic">{h.description || 'No description'}</span>
+                          </div>
+                          <span className={`font-bold ${h.type === 'owe' ? 'text-red-500/70' : 'text-emerald-500/70'}`}>
+                            {h.type === 'owe' ? '-' : '+'}{formatINR(h.amount)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ))
         )}
       </div>
+
+      {editingTransaction && (
+        <TransactionForm 
+          transactionToEdit={editingTransaction} 
+          onClose={() => setEditingTransaction(null)} 
+        />
+      )}
     </div>
   );
 };
