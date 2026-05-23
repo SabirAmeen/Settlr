@@ -9,6 +9,14 @@ export interface HistoryEntry {
   changeReason?: string;
 }
 
+export interface TransactionEntry {
+  id: string;
+  date: string;
+  amount: number;
+  description: string;
+  type: 'owe' | 'owed';
+}
+
 export interface Transaction {
   id: string;
   type: 'owe' | 'owed';
@@ -18,14 +26,17 @@ export interface Transaction {
   date: string;
   settled: boolean;
   history: HistoryEntry[];
+  entries?: TransactionEntry[];
 }
 
 export interface TransactionContextType {
   transactions: Transaction[];
-  addTransaction: (transaction: Omit<Transaction, 'id' | 'date' | 'settled' | 'history'>) => void;
-  updateTransaction: (id: string, updates: Omit<Transaction, 'id' | 'date' | 'settled' | 'history'>, changeReason: string) => void;
+  addTransaction: (transaction: Omit<Transaction, 'id' | 'date' | 'settled' | 'history' | 'entries'>) => void;
+  updateTransaction: (id: string, updates: Omit<Transaction, 'id' | 'date' | 'settled' | 'history' | 'entries'>, changeReason: string) => void;
   deleteTransaction: (id: string) => void;
   toggleSettled: (id: string) => void;
+  addSubEntry: (id: string, entry: { amount: number; description: string; type: 'owe' | 'owed' }) => void;
+  deleteSubEntry: (transactionId: string, entryId: string) => void;
   totalIOwe: number;
   totalOwedToMe: number;
   netBalance: number;
@@ -40,7 +51,25 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
     const saved = localStorage.getItem('settlr_transactions');
     if (saved) {
       try {
-        setTransactions(JSON.parse(saved));
+        const parsed = JSON.parse(saved) as Transaction[];
+        const migrated = parsed.map(t => {
+          if (!t.entries || t.entries.length === 0) {
+            return {
+              ...t,
+              entries: [
+                {
+                  id: t.id,
+                  date: t.date,
+                  amount: t.amount,
+                  description: t.description || 'Initial record',
+                  type: t.type
+                }
+              ]
+            };
+          }
+          return t;
+        });
+        setTransactions(migrated);
       } catch (e) {
         console.error("Failed to parse local storage data");
       }
@@ -51,18 +80,29 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
     localStorage.setItem('settlr_transactions', JSON.stringify(transactions));
   }, [transactions]);
 
-  const addTransaction = (transaction: Omit<Transaction, 'id' | 'date' | 'settled' | 'history'>) => {
+  const addTransaction = (transaction: Omit<Transaction, 'id' | 'date' | 'settled' | 'history' | 'entries'>) => {
+    const id = crypto.randomUUID();
+    const date = new Date().toISOString();
     const newTransaction: Transaction = {
       ...transaction,
-      id: crypto.randomUUID(),
-      date: new Date().toISOString(),
+      id,
+      date,
       settled: false,
-      history: []
+      history: [],
+      entries: [
+        {
+          id,
+          date,
+          amount: transaction.amount,
+          description: transaction.description || 'Initial record',
+          type: transaction.type
+        }
+      ]
     };
     setTransactions((prev) => [newTransaction, ...prev]);
   };
 
-  const updateTransaction = (id: string, updates: Omit<Transaction, 'id' | 'date' | 'settled' | 'history'>, changeReason: string) => {
+  const updateTransaction = (id: string, updates: Omit<Transaction, 'id' | 'date' | 'settled' | 'history' | 'entries'>, changeReason: string) => {
     setTransactions((prev) => 
       prev.map(t => {
         if (t.id === id) {
@@ -74,9 +114,24 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
             type: t.type,
             changeReason: changeReason
           };
+          
+          let updatedEntries = t.entries;
+          if (!updatedEntries || updatedEntries.length <= 1) {
+            updatedEntries = [
+              {
+                id: updatedEntries?.[0]?.id || t.id,
+                date: updatedEntries?.[0]?.date || t.date,
+                amount: updates.amount,
+                description: updates.description || 'Initial record',
+                type: updates.type
+              }
+            ];
+          }
+
           return {
             ...t,
             ...updates,
+            entries: updatedEntries,
             history: [historyEntry, ...t.history]
           };
         }
@@ -95,6 +150,88 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
     );
   };
 
+  const addSubEntry = (id: string, entry: { amount: number; description: string; type: 'owe' | 'owed' }) => {
+    setTransactions((prev) =>
+      prev.map((t) => {
+        if (t.id === id) {
+          const currentEntries = t.entries || [
+            {
+              id: t.id,
+              date: t.date,
+              amount: t.amount,
+              description: t.description || 'Initial record',
+              type: t.type
+            }
+          ];
+
+          const newEntry = {
+            id: crypto.randomUUID(),
+            date: new Date().toISOString(),
+            amount: entry.amount,
+            description: entry.description || 'Sub-entry added',
+            type: entry.type
+          };
+
+          const updatedEntries = [...currentEntries, newEntry];
+
+          // Recalculate parent net
+          let net = 0;
+          updatedEntries.forEach(e => {
+            net += e.type === 'owed' ? Number(e.amount) : -Number(e.amount);
+          });
+
+          return {
+            ...t,
+            amount: Math.abs(net),
+            type: net >= 0 ? 'owed' : 'owe',
+            description: entry.description || t.description,
+            date: newEntry.date,
+            entries: updatedEntries
+          };
+        }
+        return t;
+      })
+    );
+  };
+
+  const deleteSubEntry = (transactionId: string, entryId: string) => {
+    setTransactions((prev) =>
+      prev.map((t) => {
+        if (t.id === transactionId) {
+          const currentEntries = t.entries || [
+            {
+              id: t.id,
+              date: t.date,
+              amount: t.amount,
+              description: t.description || 'Initial record',
+              type: t.type
+            }
+          ];
+
+          if (currentEntries.length <= 1) {
+            return t; // Keep at least one entry
+          }
+
+          const updatedEntries = currentEntries.filter(e => e.id !== entryId);
+
+          // Recalculate parent net
+          let net = 0;
+          updatedEntries.forEach(e => {
+            net += e.type === 'owed' ? Number(e.amount) : -Number(e.amount);
+          });
+
+          return {
+            ...t,
+            amount: Math.abs(net),
+            type: net >= 0 ? 'owed' : 'owe',
+            entries: updatedEntries
+          };
+         }
+         return t;
+       })
+     );
+   };
+
   const totalIOwe = transactions
     .filter(t => t.type === 'owe' && !t.settled)
     .reduce((sum, t) => sum + Number(t.amount), 0);
@@ -112,6 +249,8 @@ export const TransactionProvider: React.FC<{ children: ReactNode }> = ({ childre
       updateTransaction,
       deleteTransaction,
       toggleSettled,
+      addSubEntry,
+      deleteSubEntry,
       totalIOwe,
       totalOwedToMe,
       netBalance
