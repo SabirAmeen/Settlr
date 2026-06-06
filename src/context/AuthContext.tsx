@@ -1,4 +1,12 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import {
+  User,
+  GoogleAuthProvider,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged
+} from 'firebase/auth';
+import { auth } from '../firebase';
 
 export interface AuthContextType {
   isAuthenticated: boolean;
@@ -12,6 +20,12 @@ export interface AuthContextType {
   setupPin: (newPin: string) => void;
   authenticatePin: (inputPin: string) => boolean;
   resetAuth: () => void;
+  // Cloud sync
+  googleUser: User | null;
+  isSyncEnabled: boolean;
+  isSyncLoading: boolean;
+  enableCloudSync: () => Promise<void>;
+  disableCloudSync: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,10 +38,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [hasPin, setHasPin] = useState<boolean>(() => !!localStorage.getItem('settlr_pin'));
   const [pin, setPin] = useState<string | null>(() => localStorage.getItem('settlr_pin'));
 
+  // Cloud sync state
+  const [googleUser, setGoogleUser] = useState<User | null>(null);
+  const [isSyncEnabled, setIsSyncEnabled] = useState<boolean>(() => localStorage.getItem('settlr_sync_enabled') === 'true');
+  const [isSyncLoading, setIsSyncLoading] = useState<boolean>(false);
+
   useEffect(() => {
-    // Re-check support in case window object wasn't fully ready
     if (!window.PublicKeyCredential) setIsSupported(false);
     if (!window.isSecureContext) setIsSecure(false);
+  }, []);
+
+  // Listen for Firebase auth state changes (e.g. session restored on page load)
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setGoogleUser(user);
+      if (!user) {
+        // If Firebase session expired/logged out, disable sync silently
+        setIsSyncEnabled(false);
+        localStorage.setItem('settlr_sync_enabled', 'false');
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
   const generateChallenge = (): Uint8Array => {
@@ -42,15 +73,15 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const userId = generateChallenge();
 
       const publicKeyCredentialCreationOptions: PublicKeyCredentialCreationOptions = {
-        challenge,
+        challenge: challenge as BufferSource,
         rp: { name: "Settlr" },
         user: {
-          id: userId,
+          id: userId as BufferSource,
           name: "user@settlr.local",
           displayName: "Settlr User",
         },
-        pubKeyCredParams: [{alg: -7, type: "public-key"}],
-        authenticatorSelection: { 
+        pubKeyCredParams: [{ alg: -7, type: "public-key" }],
+        authenticatorSelection: {
           userVerification: "required",
           authenticatorAttachment: "platform",
           residentKey: "preferred"
@@ -67,7 +98,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const credentialId = btoa(String.fromCharCode.apply(null, Array.from(new Uint8Array(credential.rawId))));
       localStorage.setItem('settlr_credential_id', credentialId);
       setHasBiometrics(true);
-      setIsAuthenticated(true); // Log in immediately after setup
+      setIsAuthenticated(true);
       return true;
     } catch (err) {
       console.error('Error setting up biometrics:', err);
@@ -84,7 +115,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const challenge = generateChallenge();
 
       const publicKeyCredentialRequestOptions: PublicKeyCredentialRequestOptions = {
-        challenge,
+        challenge: challenge as BufferSource,
         allowCredentials: [{
           id: credIdBytes,
           type: 'public-key',
@@ -119,7 +150,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
     return false;
   };
-  
+
   const resetAuth = (): void => {
     localStorage.removeItem('settlr_credential_id');
     localStorage.removeItem('settlr_pin');
@@ -127,6 +158,33 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setHasPin(false);
     setPin(null);
     setIsAuthenticated(true);
+  };
+
+  const enableCloudSync = async (): Promise<void> => {
+    setIsSyncLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      await signInWithPopup(auth, provider);
+      setIsSyncEnabled(true);
+      localStorage.setItem('settlr_sync_enabled', 'true');
+    } catch (err) {
+      console.error('Google Sign-In failed:', err);
+    } finally {
+      setIsSyncLoading(false);
+    }
+  };
+
+  const disableCloudSync = async (): Promise<void> => {
+    setIsSyncLoading(true);
+    try {
+      await signOut(auth);
+      setIsSyncEnabled(false);
+      localStorage.setItem('settlr_sync_enabled', 'false');
+    } catch (err) {
+      console.error('Sign-out failed:', err);
+    } finally {
+      setIsSyncLoading(false);
+    }
   };
 
   return (
@@ -141,7 +199,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       authenticateBiometrics,
       setupPin,
       authenticatePin,
-      resetAuth
+      resetAuth,
+      googleUser,
+      isSyncEnabled,
+      isSyncLoading,
+      enableCloudSync,
+      disableCloudSync,
     }}>
       {children}
     </AuthContext.Provider>

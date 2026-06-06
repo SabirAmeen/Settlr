@@ -13,7 +13,6 @@ const LockScreen: React.FC = () => {
     isSecure,
     setupBiometrics, 
     authenticateBiometrics,
-    pin,
     setupPin,
     authenticatePin
   } = context;
