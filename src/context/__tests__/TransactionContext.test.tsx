@@ -1,7 +1,71 @@
 import { render, screen, act } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { TransactionProvider, TransactionContext } from '../TransactionContext';
+import { AuthContext, AuthContextType } from '../AuthContext';
 import React, { useContext } from 'react';
+
+// ─── Mock Firebase modules ────────────────────────────────────────────────────
+
+vi.mock('../../firebase', () => ({
+  db: {},
+  auth: {}
+}));
+
+vi.mock('firebase/firestore', () => ({
+  getFirestore: vi.fn(),
+  collection: vi.fn(() => ({})),
+  query: vi.fn(() => ({})),
+  where: vi.fn(() => ({})),
+  onSnapshot: vi.fn(() => vi.fn()),  // returns unsubscribe mock
+  doc: vi.fn(() => ({})),
+  addDoc: vi.fn(async () => ({ id: 'new-cloud-id' })),
+  updateDoc: vi.fn(async () => {}),
+  deleteDoc: vi.fn(async () => {}),
+  writeBatch: vi.fn(() => ({
+    set: vi.fn(),
+    commit: vi.fn(async () => {})
+  }))
+}));
+
+vi.mock('firebase/auth', () => ({
+  getAuth: vi.fn(),
+  GoogleAuthProvider: vi.fn(),
+  signInWithPopup: vi.fn(),
+  signOut: vi.fn(),
+  onAuthStateChanged: vi.fn(() => vi.fn())
+}));
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const mockAuthContext: AuthContextType = {
+  isAuthenticated: true,
+  isSupported: false,
+  isSecure: true,
+  hasBiometrics: false,
+  hasPin: false,
+  pin: null,
+  setupBiometrics: vi.fn(async () => false),
+  authenticateBiometrics: vi.fn(async () => false),
+  setupPin: vi.fn(),
+  authenticatePin: vi.fn(() => true),
+  resetAuth: vi.fn(),
+  googleUser: null,
+  isSyncEnabled: false,
+  isSyncLoading: false,
+  enableCloudSync: vi.fn(async () => {}),
+  disableCloudSync: vi.fn(async () => {}),
+};
+
+const Wrapper: React.FC<{ children: React.ReactNode; authOverrides?: Partial<AuthContextType> }> = ({
+  children,
+  authOverrides = {}
+}) => (
+  <AuthContext.Provider value={{ ...mockAuthContext, ...authOverrides }}>
+    <TransactionProvider>
+      {children}
+    </TransactionProvider>
+  </AuthContext.Provider>
+);
 
 const TestComponent = () => {
   const context = useContext(TransactionContext);
@@ -16,13 +80,13 @@ const TestComponent = () => {
           <div data-testid={`tx-amount-${t.id}`}>{t.amount}</div>
           <div data-testid={`tx-type-${t.id}`}>{t.type}</div>
           <div data-testid={`tx-entries-count-${t.id}`}>{t.entries?.length || 0}</div>
-          <button 
+          <button
             data-testid={`add-sub-owed-${t.id}`}
             onClick={() => context.addSubEntry(t.id, { amount: 300, description: 'More lent', type: 'owed' })}
           >
             Add Owed Sub
           </button>
-          <button 
+          <button
             data-testid={`add-sub-owe-${t.id}`}
             onClick={() => context.addSubEntry(t.id, { amount: 1000, description: 'Borrowing', type: 'owe' })}
           >
@@ -39,8 +103,8 @@ const TestComponent = () => {
           ))}
         </div>
       ))}
-      <button 
-        data-testid="add-btn" 
+      <button
+        data-testid="add-btn"
         onClick={() => context.addTransaction({ type: 'owed', amount: 500, person: 'Bob', description: '' })}
       >
         Add
@@ -48,6 +112,8 @@ const TestComponent = () => {
     </div>
   );
 };
+
+// ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('TransactionContext', () => {
   beforeEach(() => {
@@ -65,9 +131,9 @@ describe('TransactionContext', () => {
 
   it('provides initial state and calculates balance', () => {
     render(
-      <TransactionProvider>
+      <Wrapper>
         <TestComponent />
-      </TransactionProvider>
+      </Wrapper>
     );
 
     expect(screen.getByTestId('net-balance')).toHaveTextContent('0');
@@ -75,12 +141,12 @@ describe('TransactionContext', () => {
 
   it('updates state and recalculates when a transaction is added', async () => {
     render(
-      <TransactionProvider>
+      <Wrapper>
         <TestComponent />
-      </TransactionProvider>
+      </Wrapper>
     );
 
-    act(() => {
+    await act(async () => {
       screen.getByTestId('add-btn').click();
     });
 
@@ -98,11 +164,11 @@ describe('TransactionContext', () => {
       settled: false,
       history: []
     };
-    
+
     const store: Record<string, string> = {
       'settlr_transactions': JSON.stringify([oldTransaction])
     };
-    
+
     Object.defineProperty(window, 'localStorage', {
       value: {
         getItem: vi.fn((key) => store[key] || null),
@@ -114,9 +180,9 @@ describe('TransactionContext', () => {
     });
 
     render(
-      <TransactionProvider>
+      <Wrapper>
         <TestComponent />
-      </TransactionProvider>
+      </Wrapper>
     );
 
     const amountElement = await screen.findByTestId('tx-amount-old-1');
@@ -124,25 +190,23 @@ describe('TransactionContext', () => {
     expect(screen.getByTestId('tx-entries-count-old-1')).toHaveTextContent('1');
   });
 
-  it('recalculates balance and details when sub-entries are added or deleted', () => {
+  it('recalculates balance and details when sub-entries are added or deleted', async () => {
     render(
-      <TransactionProvider>
+      <Wrapper>
         <TestComponent />
-      </TransactionProvider>
+      </Wrapper>
     );
 
     // 1. Add base transaction (owed 500)
-    act(() => {
+    await act(async () => {
       screen.getByTestId('add-btn').click();
     });
 
     expect(screen.getByTestId('net-balance')).toHaveTextContent('500');
 
-    // Get the dynamic transaction element
     const countElement = screen.getByTestId('tx-count');
     expect(countElement).toHaveTextContent('1');
 
-    // Retrieve transaction details
     const txElement = screen.getByTestId('transaction-item');
     const txId = txElement.getAttribute('data-txid');
     expect(txId).toBeDefined();
@@ -152,7 +216,7 @@ describe('TransactionContext', () => {
     expect(screen.getByTestId(`tx-entries-count-${txId}`)).toHaveTextContent('1');
 
     // 2. Add an "owed" sub-entry (amount 300) -> total owed should become 800
-    act(() => {
+    await act(async () => {
       screen.getByTestId(`add-sub-owed-${txId}`).click();
     });
 
@@ -162,7 +226,7 @@ describe('TransactionContext', () => {
     expect(screen.getByTestId('net-balance')).toHaveTextContent('800');
 
     // 3. Add an opposite "owe" sub-entry (amount 1000) -> total owed should flip to "owe" 200
-    act(() => {
+    await act(async () => {
       screen.getByTestId(`add-sub-owe-${txId}`).click();
     });
 
@@ -172,7 +236,7 @@ describe('TransactionContext', () => {
     expect(screen.getByTestId('net-balance')).toHaveTextContent('-200');
 
     // 4. Delete the "owe" sub-entry (the 3rd one, index 2) -> total owed should go back to 800 (owed)
-    act(() => {
+    await act(async () => {
       screen.getByTestId(`del-sub-${txId}-2`).click();
     });
 
