@@ -10,7 +10,7 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:5173',
     trace: 'on-first-retry',
-    channel: 'chrome', // Use 'chrome' instead of the default 'chromium'
+    channel: process.env.CI ? undefined : 'chrome',
   },
   // projects: [
   //   {
